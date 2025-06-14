@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 
 const questions = [
@@ -26,13 +26,34 @@ const QuizApp = () => {
   const [showScore, setShowScore] = useState(false);
   const [timeLeft, setTimeLeft] = useState(15);
 
+  // Shuffle questions only once on mount
   useEffect(() => {
     const shuffled = [...questions].sort(() => 0.5 - Math.random());
     setShuffledQuestions(shuffled);
   }, []);
 
+  // ✅ Wrapped in useCallback to safely use inside useEffect
+  const handleAnswer = useCallback(
+    (option) => {
+      if (shuffledQuestions[currentQ]?.answer === option) {
+        setScore((prev) => prev + 1);
+      }
+
+      const nextQ = currentQ + 1;
+      if (nextQ < shuffledQuestions.length) {
+        setCurrentQ(nextQ);
+        setTimeLeft(15);
+      } else {
+        setShowScore(true);
+      }
+    },
+    [currentQ, shuffledQuestions]
+  );
+
+  // Timer logic
   useEffect(() => {
     if (showScore) return;
+
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev === 1) {
@@ -42,28 +63,16 @@ const QuizApp = () => {
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(timer);
-  }, [currentQ, showScore]);
 
+    return () => clearInterval(timer);
+  }, [currentQ, showScore, handleAnswer]);
+
+  // ✅ Add score to dependency array
   useEffect(() => {
     if (showScore) {
       localStorage.setItem('lastScore', score);
     }
-  }, [showScore]);
-
-  const handleAnswer = (option) => {
-    if (shuffledQuestions[currentQ]?.answer === option) {
-      setScore(score + 1);
-    }
-
-    const nextQ = currentQ + 1;
-    if (nextQ < shuffledQuestions.length) {
-      setCurrentQ(nextQ);
-      setTimeLeft(15);
-    } else {
-      setShowScore(true);
-    }
-  };
+  }, [showScore, score]);
 
   const restartQuiz = () => {
     const shuffled = [...questions].sort(() => 0.5 - Math.random());
@@ -80,7 +89,7 @@ const QuizApp = () => {
       <div className="progress-bar">
         <div
           className="progress"
-          style={{ width: `${((currentQ) / questions.length) * 100}%` }}
+          style={{ width: `${(currentQ / questions.length) * 100}%` }}
         ></div>
       </div>
       {showScore ? (
